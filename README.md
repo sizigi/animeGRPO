@@ -2,8 +2,9 @@
 
 **Constrained perceptual GRPO for codec-based speech language models.**
 
-Companion code for *"When Do Perceptual Rewards Align Speech Language Models?
-Constrained GRPO for Subjective Style Control"* (EMNLP 2026).
+Companion code for *"When Does Predictor-Based RL Align with Human Perception?
+A Study of Subjective Rewards in Codec-Based Speech Language Models"*
+(Joonyong Park and Jerry Li, Spellbrush — arXiv preprint, 2026).
 
 🔊 **[Audio demo →](https://sizigi.github.io/animeGRPO/)**
 
@@ -183,13 +184,16 @@ zone gate — the ablation in the paper is exactly "swap the axis, keep the gate
 ## Citation
 
 ```bibtex
-@inproceedings{animegrpo2026,
-  title     = {When Do Perceptual Rewards Align Speech Language Models?
-               Constrained {GRPO} for Subjective Style Control},
-  booktitle = {Proceedings of EMNLP 2026},
-  year      = {2026}
+@misc{park2026predictorrl,
+  title  = {When Does Predictor-Based {RL} Align with Human Perception?
+            A Study of Subjective Rewards in Codec-Based Speech Language Models},
+  author = {Park, Joonyong and Li, Jerry},
+  year   = {2026},
+  note   = {arXiv preprint}
 }
 ```
+
+The arXiv identifier will be added to the entry once assigned.
 
 ## License
 
