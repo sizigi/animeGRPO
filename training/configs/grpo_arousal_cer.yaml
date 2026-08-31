@@ -1,0 +1,54 @@
+# GRPO with VAD-Arousal + CER-zone reward (Llasa-1B-Multilingual, JP).
+# Reported in the paper as a *failed axis* (appendix §F). Training was
+# halted at step 240 after the predictor's output collapsed under the
+# XCodec2 round-trip artifact (see docs/reward_model_notes.md).
+
+base_model: HKUSTAudio/Llasa-1B-Multilingual
+reward_axis: arousal_cer
+selected_step: 240   # halted; reported as failure mode in paper
+
+cer_zone:
+  tau_low: 0.10
+  tau_high: 0.30
+  rho: 1.0
+  bonus_clean: 0.5
+
+decoding:
+  do_sample: true
+  temperature: 1.0
+  top_p: 0.85
+  repetition_penalty: 1.05
+  max_response_length: 2048
+
+rollout:
+  n: 4
+  speech_token_start_id: 128264
+  speech_token_end_id:   193799
+  stop_token_ids: [128261]
+
+optim:
+  lr: 5.0e-7
+  ppo_mini_batch_size: 16
+  ppo_micro_batch_size_per_gpu: 4
+  clip_ratio: 0.1
+  entropy_coeff: 0.0
+
+kl:
+  kl_in_reward: true
+  adaptive: true
+  init_coef: 0.05
+  target_kl: 0.05
+  horizon: 2000
+
+trainer:
+  test_freq: 30
+  save_freq: 30
+  total_epochs: 40
+
+notes:
+  failure_mode: |
+    The audeering/wav2vec2-large-robust-12-ft-emotion-msp-dim arousal
+    head outputs collapse to a near-constant value when applied to
+    re-encoded codec audio (XCodec2 wav -> tokens -> wav). Training
+    therefore receives a degenerate signal and the policy collapses.
+    Reported as the negative result in appendix §F.

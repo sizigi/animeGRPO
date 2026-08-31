@@ -1,0 +1,37 @@
+# Best-of-N reranking with the zone-CER reward gate.
+# Baseline from the paper (Best-of-{1,2,4,8} per axis).
+#
+# We sample N=8 candidates from the *base* Llasa-1B-Multilingual model
+# with distinct seeds, score each candidate's CER and axis reward, apply
+# the zone-CER gate, and return the gated-max candidate.
+
+base_model: HKUSTAudio/Llasa-1B-Multilingual
+N_max: 8
+seeds_pool: [0, 100, 101, 102, 103, 104, 105, 106]
+
+cer_zone:
+  tau_low: 0.10
+  tau_high: 0.30
+  rho: 1.0
+  bonus_clean: 0.5
+  as_offset: 3.0   # AnimeScore normalization: (raw + 3) / 6
+
+decoding:
+  do_sample: true
+  temperature: 1.0
+  top_p: 0.85
+  repetition_penalty: 1.05
+  max_new_tokens: 2048
+
+axes:
+  - animescore
+  - utmos
+  - likability
+
+eval_prompts: prompts/jp_test_v2_prompts.csv   # n=50
+
+note: |
+  Best-of-N is reported alongside GRPO in the BoN scaling table. The
+  protocol does NOT include retry; if a chosen-best has CER > 0.30 we
+  keep it (the chosen candidate stays as the BoN-N output). This is
+  intentional — BoN compute is fixed at N samples per prompt.

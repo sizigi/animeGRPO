@@ -1,0 +1,26 @@
+# ── reward functions (imported by the trainer) ──────────────────────────
+requests>=2.31
+jiwer>=3.0
+
+# ── reward servers ──────────────────────────────────────────────────────
+fastapi>=0.110
+uvicorn>=0.29
+pydantic>=2.0
+torch>=2.4
+torchaudio>=2.4
+transformers>=4.44
+xcodec2                      # HKUST-Audio/xcodec2 wrapper
+openai-whisper               # CER scoring (large-v3)
+speechmos                    # UTMOS22-strong, tarepan/SpeechMOS
+audeer; python_version >= "3.9"   # VAD arousal server only
+
+# ── evaluation / analysis ───────────────────────────────────────────────
+numpy>=1.24
+pandas>=2.0
+scipy>=1.10
+soundfile>=0.12
+matplotlib>=3.7
+pyyaml>=6.0
+
+# ── trainer (installed separately) ──────────────────────────────────────
+# verl + vLLM come from the channel-io/ch-tts-llasa-rl-grpo fork; see README.

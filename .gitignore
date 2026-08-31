@@ -1,0 +1,22 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# run artifacts
+checkpoints/
+outputs/
+wandb/
+logs/
+samples/
+*.log
+*.parquet
+*.pt
+*.ckpt
+
+# local scratch
+.DS_Store
+.vscode/
+.idea/
+*.swp

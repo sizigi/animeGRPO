@@ -1,0 +1,206 @@
+diff --git a/verl/trainer/ppo/ray_trainer.py b/verl/trainer/ppo/ray_trainer.py
+index 56bc5b7..5a72a62 100644
+--- a/verl/trainer/ppo/ray_trainer.py
++++ b/verl/trainer/ppo/ray_trainer.py
+@@ -988,7 +988,10 @@ class RayPPOTrainer:
+ 
+                         print(f"{list(reward_extra_infos_dict.keys())=}")
+                         if reward_extra_infos_dict:
+-                            batch.non_tensor_batch.update({k: np.array(v) for k, v in reward_extra_infos_dict.items()})
++                            # token_weights has variable-length lists (ragged), skip np.array conversion
++                            safe_extras = {k: np.array(v) for k, v in reward_extra_infos_dict.items()
++                                           if k != "token_weights"}
++                            batch.non_tensor_batch.update(safe_extras)
+ 
+                         # compute rewards. apply_kl_penalty if available
+                         if self.config.algorithm.use_kl_in_reward:
+@@ -1011,6 +1014,25 @@ class RayPPOTrainer:
+                             multi_turn=self.config.actor_rollout_ref.rollout.multi_turn.enable,
+                         )
+ 
++                        # Token-level selective training: apply per-token importance weights
++                        # from reward function (e.g., window-level AnimeScore analysis)
++                        if "token_weights" in reward_extra_infos_dict:
++                            token_weights_list = reward_extra_infos_dict["token_weights"]
++                            response_length = batch.batch["advantages"].shape[1]
++                            bsz = batch.batch["advantages"].shape[0]
++                            weight_tensor = torch.ones(bsz, response_length, device=batch.batch["advantages"].device)
++                            for i in range(bsz):
++                                tw = token_weights_list[i]
++                                if isinstance(tw, (list, np.ndarray)) and len(tw) > 0:
++                                    tw_len = min(len(tw), response_length)
++                                    weight_tensor[i, :tw_len] = torch.tensor(tw[:tw_len], dtype=torch.float32)
++                            batch.batch["advantages"] = batch.batch["advantages"] * weight_tensor
++                            w_mean = weight_tensor[batch.batch["response_mask"].bool()].mean().item()
++                            w_std = weight_tensor[batch.batch["response_mask"].bool()].std().item()
++                            metrics["token_weights/mean"] = w_mean
++                            metrics["token_weights/std"] = w_std
++                            print(f"Token-level weights applied: mean={w_mean:.3f}, std={w_std:.3f}")
++
+                     # update critic
+                     if self.use_critic:
+                         with _timer("update_critic", timing_raw):
+diff --git a/verl/utils/reward_score/tts_cer.py b/verl/utils/reward_score/tts_cer.py
+index 9820db4..2fa6649 100644
+--- a/verl/utils/reward_score/tts_cer.py
++++ b/verl/utils/reward_score/tts_cer.py
+@@ -52,7 +52,7 @@ def _check_server():
+     if time.time() - _last_health < 30:
+         return
+     try:
+-        requests.get(HEALTH_URL, timeout=2)
++        requests.get(HEALTH_URL, timeout=10)
+         _last_health = time.time()
+     except Exception as e:
+         raise RuntimeError(f"Whisper server not reachable at {SERVER}: {e}")
+@@ -61,7 +61,7 @@ def _check_server():
+ def _remote_whisper(tokens: List[int], text: str):
+     _check_server()
+     payload = {"tokens": tokens, "text": text}
+-    r = requests.post(SCORE_URL, json=payload, timeout=20)
++    r = requests.post(SCORE_URL, json=payload, timeout=120)
+     r.raise_for_status()
+     return r.json()  # {nll, transcript}
+ 
+diff --git a/verl/workers/actor/dp_actor.py b/verl/workers/actor/dp_actor.py
+index 7ae5176..52d2b28 100644
+--- a/verl/workers/actor/dp_actor.py
++++ b/verl/workers/actor/dp_actor.py
+@@ -23,7 +23,10 @@ import os
+ from typing import Tuple
+ 
+ import torch
+-from flash_attn.bert_padding import index_first_axis, pad_input, rearrange, unpad_input
++try:
++    from flash_attn.bert_padding import index_first_axis, pad_input, rearrange, unpad_input
++except ImportError:
++    pass  # flash_attn optional; functions used only in sequence packing paths
+ from torch import nn
+ from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+ 
+diff --git a/verl/workers/critic/dp_critic.py b/verl/workers/critic/dp_critic.py
+index dc83028..213063d 100644
+--- a/verl/workers/critic/dp_critic.py
++++ b/verl/workers/critic/dp_critic.py
+@@ -21,7 +21,10 @@ import os
+ 
+ import torch
+ import torch.distributed
+-from flash_attn.bert_padding import index_first_axis, pad_input, rearrange, unpad_input
++try:
++    from flash_attn.bert_padding import index_first_axis, pad_input, rearrange, unpad_input
++except ImportError:
++    pass
+ from torch import nn, optim
+ from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+ 
+diff --git a/verl/workers/fsdp_workers.py b/verl/workers/fsdp_workers.py
+index 4811474..3d95ca9 100644
+--- a/verl/workers/fsdp_workers.py
++++ b/verl/workers/fsdp_workers.py
+@@ -192,7 +192,7 @@ class ActorRolloutRefWorker(Worker):
+ 
+         override_config_kwargs = {
+             "bos_token_id": self.tokenizer.bos_token_id,
+-            "eos_token_id": self.tokenizer.eos_token_id,
++            "eos_token_id": self.generation_config.eos_token_id if self.generation_config is not None else self.tokenizer.eos_token_id,
+             "pad_token_id": self.tokenizer.pad_token_id,
+         }
+         override_config_kwargs.update(override_model_config)
+@@ -214,7 +214,7 @@ class ActorRolloutRefWorker(Worker):
+                 pretrained_model_name_or_path=local_path,
+                 torch_dtype=torch_dtype,
+                 config=actor_model_config,
+-                attn_implementation="flash_attention_2",
++                attn_implementation="sdpa",
+                 trust_remote_code=trust_remote_code,
+             )
+ 
+@@ -270,7 +270,10 @@ class ActorRolloutRefWorker(Worker):
+         # TODO: add transformer policy
+         # We force reference policy to use CPUOffload to save memory.
+         # We force turn off CPUOffload for actor because it causes incorrect results when using grad accumulation
+-        cpu_offload = None if role == "actor" else CPUOffload(offload_params=True)
++        # Local patch: this system has a ~2GB pinned-memory cap per allocation, and 1.4B-bf16
++        # ref grads (~2.8GB) overflow it ("CUDA error: invalid argument" in init_flat_param_attributes).
++        # We have plenty of GPU headroom (gpu_memory_utilization=0.6), so disable CPUOffload everywhere.
++        cpu_offload = None
+         fsdp_strategy = self.config.actor.strategy
+         if fsdp_strategy == "fsdp":
+             actor_module_fsdp = FSDP(
+@@ -822,7 +825,7 @@ class CriticWorker(Worker):
+                 pretrained_model_name_or_path=local_path,
+                 torch_dtype=torch_dtype,
+                 config=critic_model_config,
+-                attn_implementation="flash_attention_2",
++                attn_implementation="sdpa",
+                 trust_remote_code=config.model.get("trust_remote_code", False),
+             )
+ 
+@@ -1112,7 +1115,7 @@ class RewardModelWorker(Worker):
+                 pretrained_model_name_or_path=local_path,
+                 config=model_config,
+                 torch_dtype=torch.bfloat16,
+-                attn_implementation="flash_attention_2",
++                attn_implementation="sdpa",
+                 trust_remote_code=trust_remote_code,
+             )
+ 
+diff --git a/verl/workers/rollout/vllm_rollout/vllm_rollout.py b/verl/workers/rollout/vllm_rollout/vllm_rollout.py
+index 9af5020..74b1e61 100644
+--- a/verl/workers/rollout/vllm_rollout/vllm_rollout.py
++++ b/verl/workers/rollout/vllm_rollout/vllm_rollout.py
+@@ -154,9 +154,24 @@ class vLLMRollout(BaseRollout):
+             if hasattr(SamplingParams(), str(k)):
+                 kwargs[k] = config.get(k)
+ 
++        # Convert OmegaConf types to native Python for vLLM compatibility
++        if "stop_token_ids" in kwargs:
++            kwargs["stop_token_ids"] = list(kwargs["stop_token_ids"])
+         print(f"kwargs: {kwargs}")
+         self.sampling_params = SamplingParams(**kwargs)
+ 
++        # Speech-only token masking (e.g. Llasa TTS: restrict to speech tokens only)
++        if config.get("speech_only_generation", False):
++            speech_start = int(config.get("speech_token_start_id", 128264))
++            speech_end = int(config.get("speech_token_end_id", 193799))
++            allowed = set(range(speech_start, speech_end + 1))
++            # Also allow stop tokens (e.g. SPEECH_GENERATION_END)
++            if "stop_token_ids" in kwargs:
++                allowed.update(int(t) for t in kwargs["stop_token_ids"])
++            self.sampling_params.allowed_token_ids = allowed
++            print(f"Speech-only generation: allowed {len(allowed)} tokens "
++                  f"(speech {speech_start}-{speech_end} + stop tokens)")
++
+         self.pad_token_id = tokenizer.pad_token_id
+ 
+     @contextmanager
+diff --git a/verl/workers/rollout/vllm_rollout/vllm_rollout_spmd.py b/verl/workers/rollout/vllm_rollout/vllm_rollout_spmd.py
+index 2ecf7a0..baae37c 100644
+--- a/verl/workers/rollout/vllm_rollout/vllm_rollout_spmd.py
++++ b/verl/workers/rollout/vllm_rollout/vllm_rollout_spmd.py
+@@ -174,9 +174,24 @@ class vLLMRollout(BaseRollout):
+             if hasattr(SamplingParams(), str(k)):
+                 kwargs[k] = config.get(k)
+ 
++        # Convert OmegaConf types to native Python for vLLM compatibility
++        if "stop_token_ids" in kwargs:
++            kwargs["stop_token_ids"] = list(kwargs["stop_token_ids"])
+         print(f"kwargs: {kwargs}")
+         self.sampling_params = SamplingParams(**kwargs)
+ 
++        # Speech-only token masking (e.g. Llasa TTS: restrict to speech tokens only)
++        if config.get("speech_only_generation", False):
++            speech_start = int(config.get("speech_token_start_id", 128264))
++            speech_end = int(config.get("speech_token_end_id", 193799))
++            allowed = set(range(speech_start, speech_end + 1))
++            # Also allow stop tokens (e.g. SPEECH_GENERATION_END)
++            if "stop_token_ids" in kwargs:
++                allowed.update(int(t) for t in kwargs["stop_token_ids"])
++            self.sampling_params.allowed_token_ids = allowed
++            print(f"Speech-only generation: allowed {len(allowed)} tokens "
++                  f"(speech {speech_start}-{speech_end} + stop tokens)")
++
+         self.pad_token_id = tokenizer.pad_token_id
+ 
+     @contextmanager

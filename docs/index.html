@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>animeGRPO — Constrained Perceptual GRPO for Speech LMs</title>
+<meta name="description" content="Audio demo for constrained perceptual GRPO: training a LLaSA codec speech LM against an anime-likeness reward under a zone-based CER constraint.">
+<style>
+:root{
+  --bg:#fbfaf8; --panel:#ffffff; --ink:#17161a; --muted:#6b6875; --faint:#8b8794;
+  --line:#e6e2dd; --line-soft:#f0ece7;
+  --accent:#b8443c; --accent-soft:#f7e9e7;
+  --good:#2f6f4f; --good-soft:#e7f2eb;
+  --bad:#a8443c; --warn:#9a6a12;
+  --zone-clean:#e7f2eb; --zone-feas:#fdf4e3; --zone-viol:#f9e8e6;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",
+        "Hiragino Sans","Noto Sans JP",sans-serif;
+  --radius:10px;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#131215; --panel:#1b1a1e; --ink:#eceaef; --muted:#a5a1ad; --faint:#7d7987;
+    --line:#2e2c33; --line-soft:#252329;
+    --accent:#e8827a; --accent-soft:#2c1f1e;
+    --good:#7fc9a0; --good-soft:#1a2a22; --bad:#e8827a; --warn:#d9a94a;
+    --zone-clean:#1a2a22; --zone-feas:#2a2418; --zone-viol:#2c1c1b;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#131215; --panel:#1b1a1e; --ink:#eceaef; --muted:#a5a1ad; --faint:#7d7987;
+  --line:#2e2c33; --line-soft:#252329;
+  --accent:#e8827a; --accent-soft:#2c1f1e;
+  --good:#7fc9a0; --good-soft:#1a2a22; --bad:#e8827a; --warn:#d9a94a;
+  --zone-clean:#1a2a22; --zone-feas:#2a2418; --zone-viol:#2c1c1b;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+     font-size:16px;line-height:1.62;-webkit-font-smoothing:antialiased}
+.wrap{max-width:960px;margin:0 auto;padding:0 24px}
+a{color:var(--accent);text-decoration:none;border-bottom:1px solid transparent}
+a:hover{border-bottom-color:currentColor}
+
+/* ── header ─────────────────────────────────────────── */
+header{padding:76px 0 40px;border-bottom:1px solid var(--line)}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;
+         text-transform:uppercase;color:var(--faint);margin:0 0 18px}
+h1{font-size:clamp(30px,5.2vw,46px);line-height:1.14;letter-spacing:-.022em;
+   margin:0 0 8px;font-weight:660}
+h1 .sub{display:block;font-size:.56em;font-weight:520;color:var(--muted);
+        letter-spacing:-.01em;margin-top:10px;line-height:1.35}
+.venue{font-size:14px;color:var(--faint);margin:20px 0 0}
+.links{display:flex;flex-wrap:wrap;gap:10px;margin:26px 0 0}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:8px 15px;
+     border:1px solid var(--line);border-radius:99px;background:var(--panel);
+     color:var(--ink);font-size:14px;font-weight:520;transition:border-color .15s}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn svg{width:15px;height:15px;fill:currentColor;flex:none}
+
+/* ── sections ───────────────────────────────────────── */
+section{padding:52px 0;border-bottom:1px solid var(--line-soft)}
+section:last-of-type{border-bottom:none}
+h2{font-size:13px;font-family:var(--mono);letter-spacing:.13em;text-transform:uppercase;
+   color:var(--faint);font-weight:600;margin:0 0 22px}
+h3{font-size:19px;letter-spacing:-.012em;margin:34px 0 10px;font-weight:620}
+p{margin:0 0 16px;color:var(--ink)}
+p.lede{font-size:18.5px;line-height:1.62}
+.muted{color:var(--muted)}
+code{font-family:var(--mono);font-size:.88em;background:var(--line-soft);
+     padding:1px 5px;border-radius:4px}
+
+/* ── zone diagram ───────────────────────────────────── */
+.figure{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+        padding:24px 20px 16px;margin:26px 0}
+.figure svg{display:block;width:100%;height:auto}
+/* CSS vars are unreliable inside SVG presentation attributes — style by class */
+.zc{fill:var(--zone-clean)} .zf{fill:var(--zone-feas)} .zv{fill:var(--zone-viol)}
+.ax{stroke:var(--line);stroke-width:1}
+.zero{stroke:var(--faint);stroke-width:1;stroke-dasharray:2 4;opacity:.6}
+.curve{stroke:var(--accent);stroke-width:2.5;fill:none;stroke-linecap:round}
+.knob{fill:var(--accent)}
+.drop{stroke:var(--accent);stroke-width:1.2;stroke-dasharray:3 3;opacity:.5}
+.zlab{font-family:var(--mono);font-size:11.5px;fill:var(--faint);letter-spacing:.08em}
+.flab{font-family:var(--mono);font-size:12px;fill:var(--ink)}
+.tick{font-family:var(--mono);font-size:11.5px;fill:var(--muted)}
+.figcap{font-size:13.5px;color:var(--muted);margin:14px 2px 0;line-height:1.55}
+.figcap b{color:var(--ink);font-weight:600}
+
+/* ── tables ─────────────────────────────────────────── */
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:22px 0}
+table{border-collapse:collapse;width:100%;font-size:14.5px;min-width:520px}
+th,td{text-align:right;padding:9px 12px;border-bottom:1px solid var(--line-soft);
+      white-space:nowrap}
+th{font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;
+   color:var(--faint);font-weight:600;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left;white-space:normal}
+tbody tr:last-child td{border-bottom:none}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+tr.hi td{background:var(--accent-soft)}
+tr.hi td:first-child{font-weight:620}
+.diag{font-weight:680;color:var(--ink)}
+
+/* ── audio explorer ─────────────────────────────────── */
+.tabs{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 8px}
+.tab{padding:7px 14px;border:1px solid var(--line);border-radius:99px;background:transparent;
+     color:var(--muted);font:inherit;font-size:14px;font-weight:520;cursor:pointer;
+     transition:all .14s}
+.tab:hover{color:var(--ink);border-color:var(--faint)}
+.tab[aria-selected="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.tab .lang{font-family:var(--mono);font-size:10.5px;opacity:.62;margin-left:5px;
+           letter-spacing:.06em}
+.axis-note{font-size:14.5px;color:var(--muted);margin:16px 0 0;max-width:66ch}
+
+.summary{display:flex;flex-wrap:wrap;gap:10px;margin:20px 0 4px}
+.stat{flex:1 1 130px;background:var(--panel);border:1px solid var(--line);
+      border-radius:var(--radius);padding:12px 14px}
+.stat .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;
+         text-transform:uppercase;color:var(--faint);display:block;margin-bottom:3px}
+.stat .v{font-family:var(--mono);font-size:19px;font-variant-numeric:tabular-nums;
+         font-weight:600;letter-spacing:-.02em}
+.stat .v.up{color:var(--good)} .stat .v.down{color:var(--bad)}
+
+.controls{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin:22px 0 6px;
+          font-size:13.5px;color:var(--muted)}
+.controls label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.controls select{font:inherit;font-size:13.5px;color:var(--ink);background:var(--panel);
+                 border:1px solid var(--line);border-radius:6px;padding:4px 8px}
+
+table.clips{min-width:640px}
+table.clips td,table.clips th{border-bottom:1px solid var(--line-soft)}
+td.idx{font-family:var(--mono);font-size:12px;color:var(--faint);width:1%;
+       text-align:right;padding-right:4px}
+td.txt{max-width:340px;white-space:normal;font-size:14.5px;line-height:1.5}
+td.cell{width:1%;padding:7px 10px}
+.player{display:flex;align-items:center;gap:8px;justify-content:flex-end}
+.play{width:29px;height:29px;flex:none;border-radius:50%;border:1px solid var(--line);
+      background:var(--panel);color:var(--ink);cursor:pointer;display:grid;place-items:center;
+      transition:all .14s;padding:0}
+.play:hover{border-color:var(--accent);color:var(--accent)}
+.play svg{width:11px;height:11px;fill:currentColor}
+.play[data-state="playing"]{background:var(--accent);border-color:var(--accent);color:#fff}
+:root[data-theme="dark"] .play[data-state="playing"],
+.play[data-state="playing"]{color:#fff}
+.sc{font-family:var(--mono);font-size:12.5px;font-variant-numeric:tabular-nums;
+    text-align:right;line-height:1.35;min-width:62px}
+.sc .m{display:block;font-weight:600}
+.sc .c{display:block;font-size:10.5px;color:var(--faint)}
+.sc .c.viol{color:var(--bad);font-weight:600}
+.d{font-family:var(--mono);font-size:11px;padding:1px 5px;border-radius:4px;
+   font-variant-numeric:tabular-nums}
+.d.up{background:var(--good-soft);color:var(--good)}
+.d.down{background:var(--accent-soft);color:var(--bad)}
+.loading{color:var(--muted);font-size:14.5px;padding:28px 0}
+
+/* ── footer ─────────────────────────────────────────── */
+footer{padding:44px 0 72px;font-size:14px;color:var(--muted);
+       border-top:1px solid var(--line)}
+footer p{color:var(--muted);margin:0 0 14px}
+pre.cite{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+         padding:16px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;
+         line-height:1.6;color:var(--ink);margin:0 0 20px}
+.warn{border-left:2px solid var(--warn);padding-left:14px;margin:22px 0 0}
+@media (max-width:640px){
+  header{padding:52px 0 32px}
+  section{padding:40px 0}
+  td.txt{max-width:190px;font-size:13.5px}
+}
+</style>
+</head>
+<body>
+
+<header>
+<div class="wrap">
+  <p class="eyebrow">animeGRPO</p>
+  <h1>When Do Perceptual Rewards Align Speech Language Models?
+    <span class="sub">Constrained GRPO for subjective style control in codec speech LMs</span>
+  </h1>
+  <!-- Author list intentionally left out until the paper is public. -->
+  <p class="venue">EMNLP 2026 &nbsp;·&nbsp; LLaSA-1B-Multilingual &nbsp;·&nbsp; Japanese &amp; English</p>
+  <div class="links">
+    <a class="btn" href="https://github.com/sizigi/animeGRPO">
+      <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+      Code
+    </a>
+    <a class="btn" href="https://github.com/sizigi/animeGRPO/blob/main/RESULTS.md">Results</a>
+    <a class="btn" href="https://github.com/sizigi/animescore">AnimeScore reward</a>
+  </div>
+</div>
+</header>
+
+<main class="wrap">
+
+<section>
+  <h2>The problem</h2>
+  <p class="lede">A perceptual reward is subjective: nothing in it requires the
+  utterance to remain a valid reading of the prompt. Optimize anime-likeness
+  directly and the policy discovers that garbled, over-acted noise scores well.</p>
+  <p>In our runs, unconstrained optimization pushed AnimeScore up by
+  <b>+1.94</b> — while <b>34% of outputs collapsed</b> past a character error rate
+  of 0.30. Folding CER into the reward as a weighted sum only half-fixes it:
+  violations fall to 24%, but so does half the style gain. A weighted sum is a
+  trade-off the policy can pay its way out of.</p>
+
+  <h3>CER as a gate, not a term</h3>
+  <p>Instead we split the CER axis into three zones. Inside the feasible zone the
+  policy optimizes style freely; outside it, the style gradient disappears
+  entirely and the reward is a flat penalty.</p>
+
+  <div class="figure">
+    <svg viewBox="0 0 720 300" role="img"
+         aria-label="Reward as a function of CER: a step function with a clean zone below 0.10, a feasible zone up to 0.30, and a flat penalty of minus one above 0.30.">
+      <!-- zone bands -->
+      <rect class="zc" x="72"  y="26" width="140" height="196"/>
+      <rect class="zf" x="212" y="26" width="140" height="196"/>
+      <rect class="zv" x="352" y="26" width="296" height="196"/>
+      <!-- axes -->
+      <line class="ax" x1="72" y1="222" x2="648" y2="222"/>
+      <line class="ax" x1="72" y1="26"  x2="72"  y2="248"/>
+      <line class="zero" x1="72" y1="188" x2="648" y2="188"/>
+      <!-- reward curve -->
+      <g class="curve">
+        <path d="M78 74 L206 74"/>
+        <path d="M218 106 L346 106"/>
+        <path d="M358 210 L642 210"/>
+      </g>
+      <circle class="knob" cx="206" cy="74" r="3"/>
+      <circle class="knob" cx="346" cy="106" r="3"/>
+      <!-- drop connectors -->
+      <line class="drop" x1="212" y1="74"  x2="212" y2="106"/>
+      <line class="drop" x1="352" y1="106" x2="352" y2="210"/>
+      <!-- labels -->
+      <text class="zlab" x="142" y="46" text-anchor="middle">CLEAN</text>
+      <text class="zlab" x="282" y="46" text-anchor="middle">FEASIBLE</text>
+      <text class="zlab" x="500" y="46" text-anchor="middle">VIOLATE</text>
+      <text class="flab" x="88"  y="68">max(0, AS + 3.0) + 0.5</text>
+      <text class="flab" x="228" y="100">max(0, AS + 3.0)</text>
+      <text class="flab" x="368" y="204">R = −1.0</text>
+      <text class="tick" x="212" y="240" text-anchor="middle">0.10</text>
+      <text class="tick" x="352" y="240" text-anchor="middle">0.30</text>
+      <text class="tick" x="648" y="240" text-anchor="end">CER →</text>
+      <text class="tick" x="64"  y="192" text-anchor="end">0</text>
+      <text class="tick" x="60" y="128" text-anchor="middle"
+            transform="rotate(-90 60 128)">reward</text>
+    </svg>
+    <p class="figcap">The <b>+3.0</b> shift is what makes this work. It keeps
+    <code>violate &lt; feasible ≤ clean</code> true for every AnimeScore the base
+    model actually produces — otherwise a rollout with a strongly negative style
+    score would rank <em>below</em> the violation penalty, and the policy would
+    learn that breaking the output is cheaper than speaking badly. That is
+    exactly the failure mode the gate exists to prevent.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Reward design</h2>
+  <p>Same base model, same 50 prompts, same sampling. Scored with the
+  clean-retry protocol: seed 0, then retry seeds until CER ≤ 0.30, with the
+  violation rate reported separately.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr>
+      <th>Setup</th><th>ΔAnimeScore</th><th>CER mean</th><th>CER median</th>
+      <th>Violations</th><th>Improved</th>
+    </tr></thead>
+    <tbody>
+      <tr><td>AnimeScore only</td><td class="num">+1.94</td><td class="num">0.435</td>
+          <td class="num">0.113</td><td class="num">34.0%</td><td class="num">—</td></tr>
+      <tr><td>Scalar CER (weighted sum)</td><td class="num">+0.93</td><td class="num">0.113</td>
+          <td class="num">0.046</td><td class="num">24.0%</td><td class="num">40/50</td></tr>
+      <tr class="hi"><td>Zone CER (this work)</td><td class="num">+1.24</td><td class="num">0.102</td>
+          <td class="num">0.041</td><td class="num">6.0%</td><td class="num">43/50</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="muted">The gate keeps 64% of the unconstrained style gain while cutting
+  collapses by more than five-fold, and improves the most prompts of the three.</p>
+  <p class="warn muted">The AnimeScore-only checkpoint was deleted before the
+  clean-retry protocol was finalized, so its row carries over from an earlier
+  100-sentence evaluation. Directionally sound, but not apples-to-apples with
+  the other two.</p>
+</section>
+
+<section>
+  <h2>Cross-axis transfer</h2>
+  <p>Every trained policy scored on every axis. Rows are what the reward
+  optimized; columns are what was measured; values are Δ against base.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr>
+      <th>Trained on ↓ / Measured →</th><th>ΔCER</th><th>ΔAnimeScore</th>
+      <th>ΔLikability</th><th>ΔUTMOS</th>
+    </tr></thead>
+    <tbody>
+      <tr><td>AnimeScore</td><td class="num">−0.030</td>
+          <td class="num diag">+1.353</td><td class="num">+0.075</td><td class="num">−0.037</td></tr>
+      <tr><td>UTMOS</td><td class="num">−0.030</td>
+          <td class="num">−0.072</td><td class="num">+0.140</td><td class="num diag">+0.485</td></tr>
+      <tr><td>Likability</td><td class="num">−0.018</td>
+          <td class="num">+0.029</td><td class="num diag">+0.167</td><td class="num">+0.090</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="muted">The diagonal dominates every row. Optimizing one perceptual
+  axis does not quietly buy you the others — and the single negative cell
+  (AnimeScore costs 0.037 UTMOS) is the expected tension between stylized
+  delivery and predicted naturalness. Base absolutes: CER 0.145 · AnimeScore
+  −0.392 · Likability 4.205 · UTMOS 3.078.</p>
+</section>
+
+<section id="listen">
+  <h2>Listen</h2>
+  <p>All 50 test prompts per axis. <b>Base</b> is the untrained
+  LLaSA-1B-Multilingual; <b>GRPO</b> is the selected constrained checkpoint;
+  <b>Best-of-8</b> reranks eight base samples with the same gate GRPO trains on,
+  so it isolates optimization from reward specification.</p>
+
+  <div class="tabs" id="tabs" role="tablist"></div>
+  <p class="axis-note" id="axisNote"></p>
+  <div class="summary" id="summary"></div>
+
+  <div class="controls">
+    <label>Sort
+      <select id="sort">
+        <option value="idx">prompt order</option>
+        <option value="delta">largest gain first</option>
+        <option value="delta-asc">largest regression first</option>
+      </select>
+    </label>
+    <label><input type="checkbox" id="onlyImproved"> only prompts GRPO improved</label>
+  </div>
+
+  <div class="scroll"><div id="clips" class="loading">Loading samples…</div></div>
+  <p class="figcap" id="clipCap"></p>
+</section>
+
+</main>
+
+<footer class="wrap">
+  <h2 style="margin-bottom:16px">Citation</h2>
+  <pre class="cite">@inproceedings{animegrpo2026,
+  title     = {When Do Perceptual Rewards Align Speech Language Models?
+               Constrained {GRPO} for Subjective Style Control},
+  booktitle = {Proceedings of EMNLP 2026},
+  year      = {2026}
+}</pre>
+  <p>Code is Apache-2.0. Audio and score tables are released for research
+  inspection and replication of the paper's results.</p>
+  <p><b>Responsible use.</b> The audio on this page was synthesized under reward
+  objectives that push delivery toward anime voice-acting performance. It must
+  not be used for impersonation or unauthorized style imitation of any voice,
+  real or fictional.</p>
+</footer>
+
+<audio id="au" preload="none"></audio>
+
+<script>
+const SIDES = {base:"Base", grpo:"GRPO", best_of_8:"Best-of-8"};
+const au = document.getElementById("au");
+let DATA = null, cur = 0, playing = null;
+
+const fmt = (v, d=2) => (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(d);
+const cer = v => v.toFixed(3).replace(/^0/, ".");
+
+function playClip(btn, src){
+  if (playing === btn){ au.pause(); return; }
+  if (playing) playing.dataset.state = "";
+  playing = btn; btn.dataset.state = "playing";
+  au.src = src; au.play().catch(() => { btn.dataset.state = ""; playing = null; });
+}
+au.addEventListener("ended", stop);
+au.addEventListener("pause", stop);
+function stop(){ if (playing){ playing.dataset.state = ""; playing = null; } }
+
+const ICON = '<svg viewBox="0 0 12 12"><path d="M2.5 1.2v9.6L10.5 6z"/></svg>';
+
+function cell(axis, side, item){
+  const s = item.sides[side];
+  const src = `audio/${axis.key}/${side}/${String(item.idx).padStart(3,"0")}.mp3`;
+  const btn = `<button class="play" aria-label="Play ${SIDES[side]}, prompt ${item.idx+1}"
+                data-src="${src}">${ICON}</button>`;
+  if (!s) return `<td class="cell"><div class="player">${btn}</div></td>`;
+  const viol = s.cer > 0.30 ? " viol" : "";
+  let delta = "";
+  if (side !== "base" && item.sides.base){
+    const d = s.score - item.sides.base.score;
+    delta = `<span class="d ${d >= 0 ? "up" : "down"}">${fmt(d, 2)}</span>`;
+  }
+  return `<td class="cell"><div class="player">
+      <span class="sc"><span class="m">${fmt(s.score, 2)} ${delta}</span>
+      <span class="c${viol}">CER ${cer(s.cer)}</span></span>${btn}</div></td>`;
+}
+
+function render(){
+  const axis = DATA.axes[cur];
+  document.getElementById("axisNote").textContent = axis.blurb;
+
+  const scored = axis.items.filter(i => i.sides.base && i.sides.grpo);
+  const box = document.getElementById("summary");
+  if (scored.length){
+    const mean = f => scored.reduce((a, i) => a + f(i), 0) / scored.length;
+    const dG = mean(i => i.sides.grpo.score - i.sides.base.score);
+    const up = scored.filter(i => i.sides.grpo.score > i.sides.base.score).length;
+    const vB = scored.filter(i => i.sides.base.cer > 0.30).length / scored.length;
+    const vG = scored.filter(i => i.sides.grpo.cer > 0.30).length / scored.length;
+    let cards = `<div class="stat"><span class="k">mean Δ ${axis.metric_label}</span>
+        <span class="v ${dG >= 0 ? "up" : "down"}">${fmt(dG, 3)}</span></div>
+      <div class="stat"><span class="k">prompts improved</span>
+        <span class="v">${up}/${scored.length}</span></div>
+      <div class="stat"><span class="k">violations base → grpo</span>
+        <span class="v">${(vB*100).toFixed(0)}% → ${(vG*100).toFixed(0)}%</span></div>`;
+    if (axis.sides.includes("best_of_8")){
+      const dB = mean(i => i.sides.best_of_8 ? i.sides.best_of_8.score - i.sides.base.score : 0);
+      cards += `<div class="stat"><span class="k">mean Δ best-of-8</span>
+        <span class="v ${dB >= 0 ? "up" : "down"}">${fmt(dB, 3)}</span></div>`;
+    }
+    cards += `<div class="stat"><span class="k">checkpoint</span>
+      <span class="v">step ${axis.step}</span></div>`;
+    box.innerHTML = cards;
+  } else {
+    box.innerHTML = `<div class="stat"><span class="k">checkpoint</span>
+      <span class="v">step ${axis.step}</span></div>`;
+  }
+
+  let items = axis.items.slice();
+  const sort = document.getElementById("sort").value;
+  const gain = i => (i.sides.grpo && i.sides.base)
+    ? i.sides.grpo.score - i.sides.base.score : 0;
+  if (sort === "delta")      items.sort((a, b) => gain(b) - gain(a));
+  if (sort === "delta-asc")  items.sort((a, b) => gain(a) - gain(b));
+  if (document.getElementById("onlyImproved").checked)
+    items = items.filter(i => gain(i) > 0);
+
+  const head = `<tr><th></th><th>Prompt</th>` +
+    axis.sides.map(s => `<th>${SIDES[s]}</th>`).join("") + `</tr>`;
+  const rows = items.map(i => `<tr>
+      <td class="idx">${String(i.idx + 1).padStart(2, "0")}</td>
+      <td class="txt">${i.text.replace(/[<>&]/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]))}</td>
+      ${axis.sides.map(s => cell(axis, s, i)).join("")}
+    </tr>`).join("");
+
+  const el = document.getElementById("clips");
+  el.className = "";
+  el.innerHTML = items.length
+    ? `<table class="clips"><thead>${head}</thead><tbody>${rows}</tbody></table>`
+    : `<p class="loading">No prompts match this filter.</p>`;
+
+  document.getElementById("clipCap").innerHTML = scored.length
+    ? `Scores are per-clip ${axis.metric_label} from the cross-axis evaluation;
+       the chip is Δ against that prompt's base sample. Best-of-8 numbers are
+       re-derived with the released selection rule.`
+    : `Per-clip machine scores were not part of the cross-axis release for this
+       setup, so only audio is shown.`;
+
+  stop();
+  el.querySelectorAll(".play").forEach(b =>
+    b.addEventListener("click", () => playClip(b, b.dataset.src)));
+}
+
+function buildTabs(){
+  const t = document.getElementById("tabs");
+  t.innerHTML = DATA.axes.map((a, i) =>
+    `<button class="tab" role="tab" aria-selected="${i === 0}" data-i="${i}">
+       ${a.label}<span class="lang">${a.lang}</span></button>`).join("");
+  t.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => {
+    cur = +b.dataset.i;
+    t.querySelectorAll(".tab").forEach(x =>
+      x.setAttribute("aria-selected", x === b));
+    render();
+  }));
+}
+
+fetch("data/samples.json")
+  .then(r => r.json())
+  .then(d => {
+    DATA = d;
+    buildTabs();
+    render();
+    document.getElementById("sort").addEventListener("change", render);
+    document.getElementById("onlyImproved").addEventListener("change", render);
+  })
+  .catch(() => {
+    document.getElementById("clips").textContent =
+      "Could not load samples.json — serve this directory over HTTP rather than opening the file directly.";
+  });
+</script>
+</body>
+</html>
