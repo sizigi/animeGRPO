@@ -2,9 +2,12 @@
 
 **Constrained perceptual GRPO for codec-based speech language models.**
 
-Companion code for *"When Does Predictor-Based RL Align with Human Perception?
-A Study of Subjective Rewards in Codec-Based Speech Language Models"*
-(Joonyong Park and Jerry Li, Spellbrush — arXiv preprint, 2026).
+[![arXiv](https://img.shields.io/badge/arXiv-2608.31035-b31b1b.svg)](https://arxiv.org/abs/2608.31035)
+[![Audio Demo](https://img.shields.io/badge/Audio_Demo-Website-green)](https://sizigi.github.io/animeGRPO/)
+
+Companion code for *"[When Does Predictor-Based RL Align with Human Perception?
+A Study of Subjective Rewards in Codec-Based Speech Language Models](https://arxiv.org/abs/2608.31035)"*
+(Joonyong Park and Jerry Li, Spellbrush — arXiv:2608.31035).
 
 🔊 **[Audio demo →](https://sizigi.github.io/animeGRPO/)**
 
@@ -189,11 +192,12 @@ zone gate — the ablation in the paper is exactly "swap the axis, keep the gate
             A Study of Subjective Rewards in Codec-Based Speech Language Models},
   author = {Park, Joonyong and Li, Jerry},
   year   = {2026},
-  note   = {arXiv preprint}
+  eprint = {2608.31035},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CL},
+  url    = {https://arxiv.org/abs/2608.31035}
 }
 ```
-
-The arXiv identifier will be added to the entry once assigned.
 
 ## License
 
