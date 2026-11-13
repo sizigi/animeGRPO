@@ -153,6 +153,12 @@ td.cell{width:1%;padding:7px 10px}
 .d.down{background:var(--accent-soft);color:var(--bad)}
 .loading{color:var(--muted);font-size:14.5px;padding:28px 0}
 
+/* ── research questions ─────────────────────────────── */
+.rq{list-style:none;padding:0;margin:4px 0 20px;display:grid;gap:10px}
+.rq li{display:flex;gap:12px;align-items:baseline;font-size:16.5px;line-height:1.5}
+.rq b{flex:none;font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;font-weight:650;
+      color:var(--accent);background:var(--accent-soft);border-radius:99px;padding:2px 9px}
+
 /* ── venue badge ────────────────────────────────────── */
 .conf{display:inline-block;margin:16px 0 0;padding:4px 12px;border-radius:99px;
       background:var(--accent-soft);color:var(--accent);font-family:var(--mono);
@@ -206,8 +212,8 @@ pre.cite{background:var(--panel);border:1px solid var(--line);border-radius:var(
   <h1>When Does Predictor-Based RL Align with Human Perception?
     <span class="sub">A study of subjective rewards in codec-based speech language models</span>
   </h1>
-  <p class="venue">Joonyong Park &nbsp;·&nbsp; Jerry Li &nbsp;&mdash;&nbsp; Spellbrush</p>
-  <p class="conf">EACL 2027</p>
+  <p class="venue">Joonyong Park &nbsp;·&nbsp; Jerry Li &nbsp;(Spellbrush)</p>
+  <p class="conf">EACL 2027 (Main)</p>
   <div class="links">
     <a class="btn" href="https://arxiv.org/abs/2608.31035">arXiv</a>
     <a class="btn" href="https://github.com/sizigi/animeGRPO">
@@ -220,6 +226,19 @@ pre.cite{background:var(--panel);border:1px solid var(--line);border-radius:var(
 </header>
 
 <main class="wrap">
+
+<section>
+  <h2>Problem</h2>
+  <p class="lede">Learned predictors of naturalness, likability or anime-likeness can serve as RL rewards for
+  codec-based TTS, but they are only proxies: a policy can raise the score with speech that is garbled, or
+  that listeners do not actually prefer.</p>
+  <ol class="rq">
+    <li><b>RQ1</b><span>Does each subjective reward move its own axis, or only overall quality?</span></li>
+    <li><b>RQ2</b><span>Do the machine-level gains reach human listeners?</span></li>
+    <li><b>RQ3</b><span>What makes a reward signal suitable for RL?</span></li>
+  </ol>
+  <p class="muted">We train with GRPO under a CER-zone gate and compare it with Best-of-8 reranking under the same gate.</p>
+</section>
 
 <section>
   <h2>CER as a gate, not a term</h2>
@@ -348,7 +367,7 @@ pre.cite{background:var(--panel);border:1px solid var(--line);border-radius:var(
   eprint = {2608.31035},
   archivePrefix = {arXiv},
   primaryClass  = {cs.CL},
-  note   = {Accepted to EACL 2027},
+  note   = {Accepted to EACL 2027 (Main)},
   url    = {https://arxiv.org/abs/2608.31035}
 }</pre>
   <p>Code is Apache-2.0. Audio and score tables are released for research
