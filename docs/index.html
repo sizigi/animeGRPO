@@ -153,6 +153,36 @@ td.cell{width:1%;padding:7px 10px}
 .d.down{background:var(--accent-soft);color:var(--bad)}
 .loading{color:var(--muted);font-size:14.5px;padding:28px 0}
 
+/* ── venue badge ────────────────────────────────────── */
+.conf{display:inline-block;margin:16px 0 0;padding:4px 12px;border-radius:99px;
+      background:var(--accent-soft);color:var(--accent);font-family:var(--mono);
+      font-size:12.5px;font-weight:650;letter-spacing:.1em}
+
+/* ── featured samples ───────────────────────────────── */
+.featured{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin:20px 0 8px}
+.fcard{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+       padding:14px 16px 12px;display:flex;flex-direction:column;gap:8px}
+.flang{align-self:flex-start;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;
+       color:var(--faint);border:1px solid var(--line);border-radius:99px;padding:1px 8px}
+.ftxt{margin:0;font-size:15.5px;line-height:1.5;flex:1}
+.frow{display:flex;align-items:center;gap:10px;border-top:1px solid var(--line-soft);padding-top:8px}
+.frow .who{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;
+           color:var(--muted);width:44px;flex:none}
+.frow.grpo .who{color:var(--accent);font-weight:650}
+.frow .sc{flex:1;text-align:left;min-width:0}
+
+/* ── all prompts, collapsed ─────────────────────────── */
+details.all{margin:34px 0 0;border:1px solid var(--line);border-radius:var(--radius);
+            background:var(--panel);padding:0 18px}
+details.all[open]{padding-bottom:16px}
+details.all > summary{cursor:pointer;padding:14px 0;font-weight:600;font-size:15px;list-style:none}
+details.all > summary::-webkit-details-marker{display:none}
+details.all > summary::before{content:"\25B8";display:inline-block;margin-right:8px;color:var(--faint);
+                              transition:transform .15s}
+details.all[open] > summary::before{transform:rotate(90deg)}
+details.all > summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+@media (prefers-reduced-motion:reduce){details.all > summary::before{transition:none}}
+
 /* ── footer ─────────────────────────────────────────── */
 footer{padding:44px 0 72px;font-size:14px;color:var(--muted);
        border-top:1px solid var(--line)}
@@ -177,14 +207,13 @@ pre.cite{background:var(--panel);border:1px solid var(--line);border-radius:var(
     <span class="sub">A study of subjective rewards in codec-based speech language models</span>
   </h1>
   <p class="venue">Joonyong Park &nbsp;·&nbsp; Jerry Li &nbsp;&mdash;&nbsp; Spellbrush</p>
-  <p class="venue" style="margin-top:6px"><a href="https://arxiv.org/abs/2608.31035">arXiv:2608.31035</a> &nbsp;·&nbsp; LLaSA-1B-Multilingual &nbsp;·&nbsp; Japanese &amp; English</p>
+  <p class="conf">EACL 2027</p>
   <div class="links">
     <a class="btn" href="https://arxiv.org/abs/2608.31035">arXiv</a>
     <a class="btn" href="https://github.com/sizigi/animeGRPO">
       <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
       Code
     </a>
-    <a class="btn" href="https://github.com/sizigi/animeGRPO/blob/main/RESULTS.md">Results</a>
     <a class="btn" href="https://github.com/sizigi/animescore">AnimeScore reward</a>
   </div>
 </div>
@@ -193,21 +222,7 @@ pre.cite{background:var(--panel);border:1px solid var(--line);border-radius:var(
 <main class="wrap">
 
 <section>
-  <h2>The problem</h2>
-  <p class="lede">A perceptual reward is subjective: nothing in it requires the
-  utterance to remain a valid reading of the prompt. Optimize anime-likeness
-  directly and the policy discovers that garbled, over-acted noise scores well.</p>
-  <p>In our runs, unconstrained optimization pushed AnimeScore up by
-  <b>+1.94</b> — while <b>34% of outputs collapsed</b> past a character error rate
-  of 0.30. Folding CER into the reward as a weighted sum only half-fixes it:
-  violations fall to 24%, but so does half the style gain. A weighted sum is a
-  trade-off the policy can pay its way out of.</p>
-
-  <h3>CER as a gate, not a term</h3>
-  <p>Instead we split the CER axis into three zones. Inside the feasible zone the
-  policy optimizes style freely; outside it, the style gradient disappears
-  entirely and the reward is a flat penalty.</p>
-
+  <h2>CER as a gate, not a term</h2>
   <div class="figure">
     <svg viewBox="0 0 720 300" role="img"
          aria-label="Reward as a function of CER: a step function with a clean zone below 0.10, a feasible zone up to 0.30, and a flat penalty of minus one above 0.30.">
@@ -244,20 +259,14 @@ pre.cite{background:var(--panel);border:1px solid var(--line);border-radius:var(
       <text class="tick" x="60" y="128" text-anchor="middle"
             transform="rotate(-90 60 128)">reward</text>
     </svg>
-    <p class="figcap">The <b>+3.0</b> shift is what makes this work. It keeps
-    <code>violate &lt; feasible ≤ clean</code> true for every AnimeScore the base
-    model actually produces — otherwise a rollout with a strongly negative style
-    score would rank <em>below</em> the violation penalty, and the policy would
-    learn that breaking the output is cheaper than speaking badly. That is
-    exactly the failure mode the gate exists to prevent.</p>
+    <p class="figcap">Style is optimized only inside the feasible zone; past CER 0.30 the reward is a flat
+    penalty. The <b>+3.0</b> shift keeps <code>violate &lt; feasible ≤ clean</code> for every AnimeScore
+    the base model produces.</p>
   </div>
 </section>
 
 <section>
   <h2>Reward design</h2>
-  <p>Same base model, same 50 prompts, same sampling. Scored with the
-  clean-retry protocol: seed 0, then retry seeds until CER ≤ 0.30, with the
-  violation rate reported separately.</p>
   <div class="scroll">
   <table>
     <thead><tr>
@@ -265,7 +274,7 @@ pre.cite{background:var(--panel);border:1px solid var(--line);border-radius:var(
       <th>Violations</th><th>Improved</th>
     </tr></thead>
     <tbody>
-      <tr><td>AnimeScore only</td><td class="num">+1.94</td><td class="num">0.435</td>
+      <tr><td>AnimeScore only*</td><td class="num">+1.94</td><td class="num">0.435</td>
           <td class="num">0.113</td><td class="num">34.0%</td><td class="num">—</td></tr>
       <tr><td>Scalar CER (weighted sum)</td><td class="num">+0.93</td><td class="num">0.113</td>
           <td class="num">0.046</td><td class="num">24.0%</td><td class="num">40/50</td></tr>
@@ -274,18 +283,12 @@ pre.cite{background:var(--panel);border:1px solid var(--line);border-radius:var(
     </tbody>
   </table>
   </div>
-  <p class="muted">The gate keeps 64% of the unconstrained style gain while cutting
-  collapses by more than five-fold, and improves the most prompts of the three.</p>
-  <p class="warn muted">The AnimeScore-only checkpoint was deleted before the
-  clean-retry protocol was finalized, so its row carries over from an earlier
-  100-sentence evaluation. Directionally sound, but not apples-to-apples with
-  the other two.</p>
+  <p class="figcap">Same base model, 50 prompts, clean-retry protocol (seed 0, then retry until CER ≤ 0.30).
+  * From an earlier 100-sentence evaluation.</p>
 </section>
 
 <section>
   <h2>Cross-axis transfer</h2>
-  <p>Every trained policy scored on every axis. Rows are what the reward
-  optimized; columns are what was measured; values are Δ against base.</p>
   <div class="scroll">
   <table>
     <thead><tr>
@@ -302,37 +305,35 @@ pre.cite{background:var(--panel);border:1px solid var(--line);border-radius:var(
     </tbody>
   </table>
   </div>
-  <p class="muted">The diagonal dominates every row. Optimizing one perceptual
-  axis does not quietly buy you the others — and the single negative cell
-  (AnimeScore costs 0.037 UTMOS) is the expected tension between stylized
-  delivery and predicted naturalness. Base absolutes: CER 0.145 · AnimeScore
-  −0.392 · Likability 4.205 · UTMOS 3.078.</p>
+  <p class="figcap">Rows: the reward trained on. Columns: Δ against base on each measured axis.
+  Base: CER 0.145 · AnimeScore −0.392 · Likability 4.205 · UTMOS 3.078.</p>
 </section>
 
 <section id="listen">
   <h2>Listen</h2>
-  <p>All 50 test prompts per axis. <b>Base</b> is the untrained
-  LLaSA-1B-Multilingual; <b>GRPO</b> is the selected constrained checkpoint;
-  <b>Best-of-8</b> reranks eight base samples with the same gate GRPO trains on,
-  so it isolates optimization from reward specification.</p>
+  <p class="muted">AnimeScore reward. <b>Base</b>: untrained LLaSA-1B-Multilingual · <b>GRPO</b>: zone-CER checkpoint.</p>
+  <div class="featured" id="featured"><p class="loading">Loading samples…</p></div>
 
-  <div class="tabs" id="tabs" role="tablist"></div>
-  <p class="axis-note" id="axisNote"></p>
-  <div class="summary" id="summary"></div>
+  <details class="all">
+    <summary>All 50 test prompts · 4 reward setups, with Best-of-8</summary>
+    <div class="tabs" id="tabs" role="tablist"></div>
+    <p class="axis-note" id="axisNote"></p>
+    <div class="summary" id="summary"></div>
 
-  <div class="controls">
-    <label>Sort
-      <select id="sort">
-        <option value="idx">prompt order</option>
-        <option value="delta">largest gain first</option>
-        <option value="delta-asc">largest regression first</option>
-      </select>
-    </label>
-    <label><input type="checkbox" id="onlyImproved"> only prompts GRPO improved</label>
-  </div>
+    <div class="controls">
+      <label>Sort
+        <select id="sort">
+          <option value="idx">prompt order</option>
+          <option value="delta">largest gain first</option>
+          <option value="delta-asc">largest regression first</option>
+        </select>
+      </label>
+      <label><input type="checkbox" id="onlyImproved"> only prompts GRPO improved</label>
+    </div>
 
-  <div class="scroll"><div id="clips" class="loading">Loading samples…</div></div>
-  <p class="figcap" id="clipCap"></p>
+    <div class="scroll"><div id="clips" class="loading">Loading samples…</div></div>
+    <p class="figcap" id="clipCap"></p>
+  </details>
 </section>
 
 </main>
@@ -347,6 +348,7 @@ pre.cite{background:var(--panel);border:1px solid var(--line);border-radius:var(
   eprint = {2608.31035},
   archivePrefix = {arXiv},
   primaryClass  = {cs.CL},
+  note   = {Accepted to EACL 2027},
   url    = {https://arxiv.org/abs/2608.31035}
 }</pre>
   <p>Code is Apache-2.0. Audio and score tables are released for research
@@ -365,7 +367,7 @@ const au = document.getElementById("au");
 let DATA = null, cur = 0, playing = null;
 
 const fmt = (v, d=2) => (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(d);
-const cer = v => v.toFixed(3).replace(/^0/, ".");
+const cer = v => v.toFixed(3).replace(/^0/, "");
 
 function playClip(btn, src){
   if (playing === btn){ au.pause(); return; }
@@ -378,6 +380,40 @@ au.addEventListener("pause", stop);
 function stop(){ if (playing){ playing.dataset.state = ""; playing = null; } }
 
 const ICON = '<svg viewBox="0 0 12 12"><path d="M2.5 1.2v9.6L10.5 6z"/></svg>';
+const esc = t => t.replace(/[<>&]/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]));
+
+// prompts where GRPO's effect is easy to hear: [axis key, prompt index]
+const FEATURED = [["jp_animescore", 19], ["jp_animescore", 4], ["jp_animescore", 38],
+                  ["en_animescore", 4], ["en_animescore", 10], ["en_animescore", 16]];
+
+function renderFeatured(){
+  const box = document.getElementById("featured");
+  box.innerHTML = FEATURED.map(([key, idx]) => {
+    const axis = DATA.axes.find(a => a.key === key);
+    const item = axis && axis.items.find(i => i.idx === idx);
+    if (!item) return "";
+    const row = side => {
+      const s = item.sides[side];
+      const src = `audio/${key}/${side}/${String(idx).padStart(3,"0")}.mp3`;
+      let sc = "";
+      if (s){
+        let delta = "";
+        if (side === "grpo" && item.sides.base){
+          const d = s.score - item.sides.base.score;
+          delta = `<span class="d ${d >= 0 ? "up" : "down"}">${fmt(d, 2)}</span>`;
+        }
+        sc = `<span class="m">${fmt(s.score, 2)} ${delta}</span><span class="c">CER ${cer(s.cer)}</span>`;
+      }
+      return `<div class="frow ${side}"><span class="who">${SIDES[side]}</span><span class="sc">${sc}</span>
+        <button class="play" aria-label="Play ${SIDES[side]}: ${esc(item.text)}" data-src="${src}">${ICON}</button></div>`;
+    };
+    const lang = axis.lang === "JP" ? "ja" : "en";
+    return `<div class="fcard"><span class="flang">${axis.lang}</span>
+      <p class="ftxt" lang="${lang}">${esc(item.text)}</p>${row("base")}${row("grpo")}</div>`;
+  }).join("");
+  box.querySelectorAll(".play").forEach(b =>
+    b.addEventListener("click", () => playClip(b, b.dataset.src)));
+}
 
 function cell(axis, side, item){
   const s = item.sides[side];
@@ -479,14 +515,16 @@ fetch("data/samples.json")
   .then(r => r.json())
   .then(d => {
     DATA = d;
+    renderFeatured();
     buildTabs();
     render();
     document.getElementById("sort").addEventListener("change", render);
     document.getElementById("onlyImproved").addEventListener("change", render);
   })
   .catch(() => {
-    document.getElementById("clips").textContent =
-      "Could not load samples.json — serve this directory over HTTP rather than opening the file directly.";
+    const msg = "Could not load samples.json — serve this directory over HTTP rather than opening the file directly.";
+    document.getElementById("clips").textContent = msg;
+    document.getElementById("featured").textContent = msg;
   });
 </script>
 </body>
